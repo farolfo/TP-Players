@@ -11,6 +11,7 @@ import ar.edu.itba.pod.tp.interfaces.Registration;
 import ar.edu.itba.pod.tp.interfaces.Request;
 import ar.edu.itba.pod.tp.interfaces.Response;
 import ar.edu.itba.pod.tp.interfaces.Utils;
+
 import java.rmi.ConnectException;
 import java.rmi.RemoteException;
 import java.rmi.UnmarshalException;
@@ -72,11 +73,7 @@ public class PlayerServer implements Player
 
 	public void play(String message, Player target) throws RemoteException, InterruptedException
 	{
-		int myOpSeq = this.clientSeq++;
-		Request request = new Request(this.id, myOpSeq, message, hashMessage(myOpSeq, message));
-
-		System.out.println("invoke " + request);
-		this.referee.registerRequest(this, request);
+		Request request = this.buildAndRegisterRequest(message);
 		try {
 			Response response = target.operate(request);
 			System.out.println("result " + response);
@@ -90,6 +87,7 @@ public class PlayerServer implements Player
 			throw new PlayerDownException(e.getMessage(), e);
 		}
 		catch (Exception e) {
+			System.out.println("\nAca !\n");
 			e.printStackTrace();
 			throw new PlayerDownException(e.getMessage(), e);
 		}
@@ -104,5 +102,16 @@ public class PlayerServer implements Player
 	private String hashMessage(int opSeq, String message)
 	{
 		return Utils.hashMessage(this.id, opSeq, message, this.salt);
+	}
+	
+	/* Synchronized agregado a este metodo 
+	 * */
+	private synchronized Request buildAndRegisterRequest(String message) throws RemoteException, InterruptedException {
+		int myOpSeq = this.clientSeq++;
+		Request request = new Request(this.id, myOpSeq, message, hashMessage(myOpSeq, message));
+
+		System.out.println("invoke " + request);
+		this.referee.registerRequest(this, request);
+		return request;
 	}
 }

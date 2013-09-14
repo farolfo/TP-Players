@@ -1,13 +1,12 @@
 package ar.edu.itba.pod.tp.player;
 
-import ar.edu.itba.pod.tp.interfaces.Player;
-import ar.edu.itba.pod.tp.interfaces.PlayerDownException;
-import ar.edu.itba.pod.tp.interfaces.Referee;
-import java.rmi.ConnectException;
-import java.rmi.UnmarshalException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -17,18 +16,27 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import ar.edu.itba.pod.tp.interfaces.Referee;
+
 /**
  * Hello world!
  *
  */
 public class PlayerApp 
 {
+	public static int loop;
+	public static Integer plays = 0;
+	
+	private final static Lock lock = new ReentrantLock();
+	
+	public static String name;
+
     public static void main( String[] args ) throws ParseException
     {
 		final CommandLine cmdLine = parseArguments(args);
 		final int port = Integer.valueOf(cmdLine.getOptionValue(PORT_L, PORT_D));
 		final String host = cmdLine.getOptionValue(HOST_L, HOST_D);
-		final String name = cmdLine.getOptionValue(NAME_L);
+		name = cmdLine.getOptionValue(NAME_L);
 
 		if (cmdLine.hasOption("help")) {
 			HelpFormatter formatter = new HelpFormatter();
@@ -45,24 +53,21 @@ public class PlayerApp
 			System.out.println("Player ready to play");
 
 			server.init(referee);
-			
-			List<Player> players = server.getOpponents();
-			int plays = 0;
-			int loop = server.total;
-			System.out.println("EMPEZAMOS!! el total de requests es: " + loop);
-			do {
-				int opt = (int) (java.lang.Math.random() * players.size());
-				try {
-					Player other = players.get(opt);
-					if (other != null) {
-						server.play("hola! estamos jugando " + plays, other);
-					}
-				}
-				catch (PlayerDownException e) {
-					players.remove(opt);
-				}
-			} while (++plays < loop);
-			
+			loop = server.total;
+			System.out.println("EMPEZAMOS!! el total de requests es: " + PlayerApp.loop);
+
+			/* Utilizamos 3 threads para distribuir las llamadas a los players
+			 * */
+			ExecutorService executor = Executors.newFixedThreadPool(10);
+		    for (int i = 0; i < 3; i++) {
+		      Runnable worker = new PlayThread(server);
+		      executor.execute(worker);
+		    }
+		    // This will make the executor accept no new threads
+		    // and finish all existing threads in the queue
+		    executor.shutdown();
+		    // Wait until all threads are finish
+		    while( ! executor.isTerminated() ){}
 				
 			System.out.println("salio!");
 			System.exit(0);
