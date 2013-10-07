@@ -27,8 +27,8 @@ public class PlayerServer implements Player
 	private String name;
 	private String salt;
 	private int id;
-	private int clientSeq;
-	private int serverSeq;
+	private Integer clientSeq;
+	private Integer serverSeq;
 	private Referee referee;
 	private List<Player> opponents;
 	public int total;
@@ -36,6 +36,10 @@ public class PlayerServer implements Player
 	public PlayerServer(String name)
 	{
 		this.name = name;
+	}
+	
+	public String getName(){
+		return name;
 	}
 
 	public void init(Referee referee) throws RemoteException
@@ -54,7 +58,10 @@ public class PlayerServer implements Player
 	@Override
 	public Response operate(Request request) throws RemoteException
 	{
-		int myOpSeq = this.serverSeq++;
+		int myOpSeq;
+		synchronized (this.serverSeq) {
+			myOpSeq = this.serverSeq++;
+		
 		Response response = new Response();
 		response.reqPlayerId = request.playerId;
 		response.reqClientSeq = request.clientSeq;
@@ -67,8 +74,9 @@ public class PlayerServer implements Player
 		response.rspHash = hashMessage(myOpSeq, response.rspMessage);
 		
 		this.referee.registerResponse(this, response);
-				
+		PlayerApp.asServer.incrementAndGet();
 		return response;
+		}
 	}
 
 	public void play(String message, Player target) throws RemoteException, InterruptedException
@@ -106,12 +114,22 @@ public class PlayerServer implements Player
 	
 	/* Synchronized agregado a este metodo 
 	 * */
-	private synchronized Request buildAndRegisterRequest(String message) throws RemoteException, InterruptedException {
-		int myOpSeq = this.clientSeq++;
-		Request request = new Request(this.id, myOpSeq, message, hashMessage(myOpSeq, message));
-
-		System.out.println("invoke " + request);
-		this.referee.registerRequest(this, request);
-		return request;
+	private Request buildAndRegisterRequest(String message) throws RemoteException, InterruptedException {
+		synchronized (this.clientSeq) {
+			int myOpSeq = this.clientSeq++;
+			Request request = new Request(this.id, myOpSeq, message, hashMessage(myOpSeq, message));
+	
+			System.out.println("invoke " + request);
+			this.referee.registerRequest(this, request);
+			return request;
+		}
+	}
+	
+	public Boolean isFinnished() {
+		return PlayerApp.asClient.get() > PlayerApp.loop && PlayerApp.asServer.get() > PlayerApp.loop;
+	}
+	
+	public String results() {
+		return "Server : " + PlayerApp.asServer.get() + " - Client : " + PlayerApp.asClient.get();
 	}
 }

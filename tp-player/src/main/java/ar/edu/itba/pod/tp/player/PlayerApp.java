@@ -4,6 +4,7 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -25,7 +26,9 @@ import ar.edu.itba.pod.tp.interfaces.Referee;
 public class PlayerApp 
 {
 	public static int loop;
-	public static Integer plays = 0;
+	
+	public static AtomicInteger asServer = new AtomicInteger(0);
+	public static AtomicInteger asClient = new AtomicInteger(0);
 	
 	private final static Lock lock = new ReentrantLock();
 	
